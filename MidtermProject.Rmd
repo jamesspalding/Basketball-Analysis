@@ -1,0 +1,288 @@
+---
+title: "STAT345: Chicago Bulls Shot Analysis"
+author: "James Spalding"
+date: "2023-03-30"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+#Loading in libraries
+library(nbastatR)
+library(tidyverse) 
+library(magick)
+library(ggExtra)
+library(gganimate)
+Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+
+```
+## Objective
+
+- The objective of this analysis is to see if there is any sort of difference between shot locations in the Chicago Bulls' 2017-2020 seasons. And if so, to determine the reasoning.
+
+```{r, include = FALSE}
+#Creating a large dataframe with all shot data from 2017-2020, as well as a smaller dataframe for 2020 data.
+shotsYears = NULL
+for(i in 2017:2020){
+  shots = teams_shots(teams = "Chicago Bulls", seasons = i) %>%
+    select(yearSeason, typeEvent, locationX, locationY)
+  shotsYears = rbind(shotsYears, shots)
+}
+
+shots2020 = teams_shots(teams = "Chicago Bulls", seasons = 2020) %>% 
+  select(yearSeason, typeEvent, locationX, locationY)
+```
+## Shot Locations 2017-2020
+- These plots lead me to believe that there were significantly more shots made behind the 3 point line in 2020, as the density of shots in front of the line is significantly lower. Let's see if that is the case.
+```{r, echo = FALSE, warning= FALSE}
+court = image_read("https://thedatagame.files.wordpress.com/2016/03/nba_court.jpg")
+locationsGraph = ggplot(shotsYears, aes(locationX, locationY, color = typeEvent))
+
+locationsGraph +
+  annotation_custom(grid::rasterGrob(court, interpolate=TRUE, height = .94, width = .94))+
+  #Note: The .94 height/width is not an arbitrary number. It is the scale used in the x/ylim        functions below. (470/500)
+  geom_point(size = .2, alpha = .8)+
+  scale_color_manual(values = c("red", "black"))+
+  labs(color = "Shot Status")+
+  xlab(NULL)+
+  ylab(NULL)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  xlim(-250, 250)+
+  ylim(-50, 420)+
+  facet_wrap(. ~ yearSeason)
+#These plots lead me to believe there were more shots made from behind the 3-point line in 2020 compared to prior years.
+
+#Note: I wanted to do 10 years instead of 4, but it was impossible to try and have 10 graphs on screen and have them all be readable. 
+```
+
+
+## 2019 Shot Density 
+```{r, echo = FALSE, warning = FALSE, message=FALSE}
+locations2019 = ggplot(teams_shots(teams = "Chicago Bulls", seasons = 2019), aes(locationX, locationY, color = typeEvent))+
+  annotation_custom(grid::rasterGrob(court, interpolate=TRUE, height = .94, width = .94))+
+  geom_point(size = .7, alpha = .8)+
+  scale_color_manual(values = c("red", "black"))+
+  xlab(NULL)+
+  ylab(NULL)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.position = "none")+
+  xlim(-250, 250)+
+  ylim(-50, 420)
+ggMarginal(locations2019, fill = "red", alpha = .5)
+
+#The marginal plot shows that my hypothesis was true, but not by a significant amount.
+```
+
+## 2020 Shot Density
+```{r, echo = FALSE, warning = FALSE, message=FALSE}
+#Focusing in on the 2020 data
+locations2020 = ggplot(shots2020, aes(locationX, locationY, color = typeEvent))+
+  annotation_custom(grid::rasterGrob(court, interpolate=TRUE, height = .94, width = .94))+
+  geom_point(size = .7, alpha = .8)+
+  scale_color_manual(values = c("red", "black"))+
+  xlab(NULL)+
+  ylab(NULL)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.position = "none")+
+  xlim(-250, 250)+
+  ylim(-50, 420)
+
+ggMarginal(locations2020, fill = "red", alpha = .5)
+```
+
+## Overlaid Plots
+
+```{r, echo = FALSE, warning = FALSE, message=FALSE}
+#overlapping marginal charts
+shots1920 = shotsYears %>%
+  filter(yearSeason == "2019" | yearSeason == "2020") %>%
+  transform(yearSeason = as.character(yearSeason))
+
+plot1920 = ggplot(shots1920, aes(locationX, locationY, color = yearSeason))+
+  annotation_custom(grid::rasterGrob(court, interpolate=TRUE, height = .94, width = .94))+
+  geom_point(size = .7, alpha = .8)+
+  scale_color_manual(values = c("black", "red"))+
+  xlab(NULL)+
+  ylab(NULL)+
+  labs(color = "Year") +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  xlim(-250, 250)+
+  ylim(-50, 420)
+
+ggMarginal(plot1920, groupColor = TRUE, groupFill = TRUE)
+```
+
+## Observations
+
+- As seen in the overlaid plots, the top marginal plot shows that the difference between the years does not differ at all. However, we can see that the marginal plot on the right side does differ. 
+
+- This shows that there IS a slightly higher density of shots being made behind the 3-point line. However, it does not seem to be a significant difference.
+
+- Let's approach this in another way.
+
+## Number of Shots Per Year
+- Let's check the number of shots per season for any discrepancies:
+
+  - Shots made in 2017: 7138
+
+  - Shots made in 2018: 7285
+
+  - Shots made in 2019: 7205
+
+  - Shots made in 2020: 5762
+```{r, echo = FALSE, warning = FALSE, message=FALSE, include = FALSE}
+#After this, I decided to check the number of shots per season (something I probably should have done before creating the marginal graph)
+nrow(teams_shots(teams = "Chicago Bulls", seasons = 2017))
+nrow(teams_shots(teams = "Chicago Bulls", seasons = 2018))
+nrow(teams_shots(teams = "Chicago Bulls", seasons = 2019))
+nrow(teams_shots(teams = "Chicago Bulls", seasons = 2020))
+
+
+#Upon reading this data, I found that the 2019-2020 season had close to 1500 less shots made than prior seasons due to covid, which seems likely to account for the less dense shot map.
+```
+
+## Conclusion
+
+-- From the previous slide, there is a clear difference in the amount of shots in 2020 compared to prior years; with a difference of nearly 1500 shots!
+
+-- The reason for this is very likely the suspension of the 2019-2020 season due to the COVID-19 lockdown.
+
+## Time Remaining vs Shot Locations
+
+- Since my initial test on the 2020 data failed, I decided to run another test: checking to see if there was any sort of correlation between time remaining and shot location.
+
+- I created an animated plot to show this relationship.
+
+## Shot Locations by Time Remaining
+
+```{r, echo = FALSE, warning= FALSE, message= FALSE, fig.height=2.5, fig.width=2}
+#Focusing on "Minutes Remaining" Variable
+locations2019 = ggplot(teams_shots(teams = "Chicago Bulls", seasons = 2019), aes(locationX, locationY))+
+#Don't care whether the shot was made, so removed color argument
+  annotation_custom(grid::rasterGrob(court, interpolate=TRUE, height = .94, width = .94))+
+  geom_point(size = .4)+
+  xlab(NULL)+
+  ylab(NULL)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.position = "none")+
+  xlim(-250, 250)+
+  ylim(-50, 420)+
+  labs(title = 'Minutes Remaining: {closest_state}')+ 
+  
+  transition_states(minutesRemaining,
+                    transition_length = 0,
+                    state_length = 60)
+  #The only way I could get this to count DOWN instead of up was to put "-minutesRemaining" into the above function. This works, but the the "Minutes Remaining: " label above the graph then has an ugly minus sign in front of it, and putting abs() around the "closest_state" variable breaks it. So unfortunately, I left it counting up, as I felt making it look professional was more important.
+
+locations2019
+```
+
+## Zero Seconds vs Eleven Seconds
+```{r, echo = FALSE, warning= FALSE, message= FALSE}
+#Focusing on "Minutes Remaining" Variable
+timeZero = teams_shots(teams = "Chicago Bulls", seasons = 2019) %>% filter(minutesRemaining == 0 | minutesRemaining == 11)
+timeZeroPlot = ggplot(timeZero, aes(locationX, locationY))+
+  annotation_custom(grid::rasterGrob(court, interpolate=TRUE, height = .94, width = .94))+
+  geom_point(size = .7)+
+  xlab(NULL)+
+  ylab(NULL)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.position = "none")+
+  xlim(-250, 250)+
+  ylim(-50, 420)+
+  #labs(title = 'Minutes Remaining: 0')+
+  facet_grid(. ~ minutesRemaining)
+  
+timeZeroPlot
+```
+
+## Observations
+
+- I noticed that in the 0 and 1 minute remaining categories, there were more shots being made, but from less dense locations. 
+  - Shots being made from where ever the ball is to try and get it in before the quarter is over.
+
+- When there is more time left, less, but more precise, shots seemed to be made.
+  - Example: more dense under the hoop and at the 3 point line; less outliers.
+
+## Extra
+
+- I attempted to make more observations with both:
+  
+  -A heatmap
+  
+  -Side-by-side "Made vs Not Made" plots
+  
+- However, I found neither of these to be useful in obtaining any sort of new information.
+
+## 2019 Heatmap
+
+- The color is far too light to be able to make any sort of conclusions with the heatmap.
+
+```{r, echo = FALSE, warning = FALSE, message=FALSE}
+heat2019 = ggplot(teams_shots(teams = "Chicago Bulls", seasons = 2019), aes(locationX, locationY))+
+  annotation_custom(grid::rasterGrob(court, interpolate=TRUE, height = .94, width = .94))+
+  stat_density_2d(aes(fill = ..density.., alpha = .7), geom = "raster", contour = FALSE) +
+  scale_fill_gradient(high = "red", low = "white") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme(legend.position='none')+
+  xlab(NULL)+
+  ylab(NULL)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  xlim(-250, 250)+
+  ylim(-50, 420)
+heat2019
+```
+
+## Made vs Missed Shot plots
+
+- All I can tell from these plots is that there seems to be more overall shots missed than made.
+
+```{r, echo = FALSE, warning = FALSE, message=FALSE}
+#Made vs not made graphs
+shotsmade2020 = ggplot(shots2020, aes(locationX, locationY))+
+  annotation_custom(grid::rasterGrob(court, interpolate=TRUE, height = .94, width = .94))+
+  geom_point(size = .7)+
+  #scale_color_manual(values = c("red", "black"))+
+
+  xlab(NULL)+
+  ylab(NULL)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.position = "none")+
+  xlim(-250, 250)+
+  ylim(-50, 420)+
+  facet_wrap(. ~ typeEvent)
+shotsmade2020
+
+
+
+#FINAL NOTE: 
+#There were a few slides where I could not seem to get the console output to go away no matter what I did without also deleting the plot.(I tried all the RMD parameters) I think this most likely has something to do with the NBAstatR package, and it annoys me to no end seeing the "## Chicago Bulls 2018-19 shot data" pop up in various slides. Overall though, this project took me a lot of time, but it was so satisfying building such a large project from the ground up, and being able to make observations using plots entirely built by me. I am looking forward to making a project for the final on something that I (hopefully) am actually interested in, unlike basketball.
+```
