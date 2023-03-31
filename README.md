@@ -1,2 +1,2 @@
 # STAT345Midterm
-Midterm Projet for STAT345
+Midterm Project for STAT345
